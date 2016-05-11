@@ -41,6 +41,32 @@ DeepLearning-<Trial Number>-<Date>.(pptx|pdf)
 
 > git branchの作り方を書く
 
+### 環境のセットアップ
+
+Homebrewとpyenvを利用すると比較的すぐ作業環境を構築することができます。
+
+```
+$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+$ brew update
+$ brew install pyenv
+To use Homebrew's directories rather than ~/.pyenv add to your profile:
+  export PYENV_ROOT=/usr/local/var/pyenv
+
+To enable shims and autocompletion add to your profile:
+  if which pyenv > /dev/null; then eval "$(pyenv init -)"; fi
+$ echo "export PYENV_ROOT=/usr/local/var/pyenv" >> ~/.bash_profile
+$ echo "if which pyenv > /dev/null; then eval "$(pyenv init -)"; fi" >> ~/.bash_profile
+$ source ~/.bash_profile
+$ pyenv install anaconda-2.4.0
+$ git clone https://github.com/medinfo2/deeplearning.git
+$ cd deeplearning
+$ pyenv local anaconda-2.4.0
+$ pip install chainer
+```
+
+既にbrewをインストールしていたり、pyenvを使わず自分の環境を使いたい人は適宜、手順を省いて下さい。
+
 ### 参考文献
 
 * [元にしたソースコード](https://github.com/hogefugabar/deep-learning-chainer)
+* [Homebrew](http://brew.sh/index_ja.html)
