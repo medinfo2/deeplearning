@@ -41,7 +41,13 @@ DeepLearning-<Trial Number>-<Date>.(pptx|pdf)
 
 課題で作成したプログラムは、gitでbranchを作ってお互いに参照できるようにすると良いと思います。以下、ブランチの作り方とリポジトリへの反映方法です。
 
-> git branchの作り方を書く
+```
+$ git checkout -b deeplearning-<username>-<Trial Number>
+...<実際の作業>...
+$ git commit -a -m "<comment>"
+$ git push origin deeplearning-<username>-<Trial Number>
+$ git checkout master
+```
 
 ### 環境のセットアップ
 
