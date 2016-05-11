@@ -35,6 +35,8 @@
 DeepLearning-<Trial Number>-<Date>.(pptx|pdf)
 ```
 
+* [第一回演習資料](https://github.com/medinfo2/deeplearning/wiki/files/DeepLearning-1-20160513.pptx)
+
 ### 課題
 
 課題で作成したプログラムは、gitでbranchを作ってお互いに参照できるようにすると良いと思います。以下、ブランチの作り方とリポジトリへの反映方法です。
