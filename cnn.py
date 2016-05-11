@@ -1,24 +1,30 @@
 # -*- coding: utf-8 -*-
 
-import argparse
 import time
 import cPickle as pickle
-import numpy as np
+import logging
+import traceback
+
+import numpy
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
-from chainer import cuda, Variable, FunctionSet, optimizers
+from chainer import cuda
+from chainer import Variable
+from chainer import FunctionSet
+from chainer import optimizers
 import chainer.functions as F
 
-# import sys
-# sys.path.append
+import click
+
 
 class CNNModel(FunctionSet):
 	def __init__(self, in_channels=1, n_hidden=100, n_outputs=10):
-		super(CNNModel, self).__init__(
-			conv1=	F.Convolution2D(in_channels, 32, 5),
-			conv2=	F.Convolution2D(32, 32, 5),
-			l3=		F.Linear(288, n_hidden),
-			l4=		F.Linear(n_hidden, n_outputs)
+		FunctionSet.__init__(
+			self,
+			conv1=F.Convolution2D(in_channels, 32, 5),
+			conv2=F.Convolution2D(32, 32, 5),
+			l3=F.Linear(288, n_hidden),
+			l4=F.Linear(n_hidden, n_outputs)
 		)
 
 	def forward(self, x_data, y_data, train=True, gpu=-1):
@@ -27,7 +33,7 @@ class CNNModel(FunctionSet):
 		h = F.max_pooling_2d(F.relu(self.conv2(h)), ksize=3, stride=3)
 		h = F.dropout(F.relu(self.l3(h)), train=train)
 		y = self.l4(h)
-		return F.softmax_cross_entropy(y, t), F.accuracy(y,t)
+		return F.softmax_cross_entropy(y, t), F.accuracy(y, t)
 
 	def predict(self, x_data, gpu=-1):
 		x = Variable(x_data)
@@ -38,22 +44,23 @@ class CNNModel(FunctionSet):
 		sftmx = F.softmax(y)
 		out_data = cuda.to_cpu(sftmx.data)
 		return out_data
-	
 
-class CNN:
-	def __init__(self, data, target, in_channels=1,
-									 n_hidden=100,
-									 n_outputs=10,
-									 gpu=-1):
 
+class CNN(object):
+	def __init__(
+		self,
+		data,
+		target,
+		in_channels=1,
+		n_hidden=100,
+		n_outputs=10,
+		gpu=-1
+	):
 		self.model = CNNModel(in_channels, n_hidden, n_outputs)
 		self.model_name = 'cnn.model'
 
 		if gpu >= 0:
 			self.model.to_gpu()
-			self.xp = cuda.cupy
-		else:
-			self.xp = np
 
 		self.gpu = gpu
 
@@ -66,13 +73,21 @@ class CNN:
 		self.optimizer = optimizers.Adam()
 		self.optimizer.setup(self.model)
 
+		self.train_accuracies = []
+		self.train_losses = []
+		self.test_accuracies = []
+		self.test_losses = []
+
+	@property
+	def xp(self):
+		return cuda.cupy if self.gpu >= 0 else numpy
 
 	def train_and_test(self, n_epoch=20, batchsize=100):
 		epoch = 1
 		while epoch <= n_epoch:
-			print 'epoch', epoch
+			logging.info('epoch {}'.format(epoch))
 
-			perm = np.random.permutation(self.n_train)
+			perm = numpy.random.permutation(self.n_train)
 			sum_train_accuracy = 0
 			sum_train_loss = 0
 			for i in xrange(0, self.n_train, batchsize):
@@ -89,7 +104,14 @@ class CNN:
 				sum_train_loss += float(loss.data) * real_batchsize
 				sum_train_accuracy += float(acc.data) * real_batchsize
 
-			print 'train mean loss={}, accuracy={}'.format(sum_train_loss/self.n_train, sum_train_accuracy/self.n_train)
+			logging.info(
+				'train mean loss={}, accuracy={}'.format(
+					sum_train_loss / self.n_train,
+					sum_train_accuracy / self.n_train
+				)
+			)
+			self.train_accuracies.append(sum_train_accuracy / self.n_train)
+			self.train_losses.append(sum_train_loss / self.n_train)
 
 			# evalation
 			sum_test_accuracy = 0
@@ -105,7 +127,14 @@ class CNN:
 				sum_test_loss += float(loss.data) * real_batchsize
 				sum_test_accuracy += float(acc.data) * real_batchsize
 
-			print 'test mean loss={}, accuracy={}'.format(sum_test_loss/self.n_test, sum_test_accuracy/self.n_test)
+			logging.info(
+				'test mean loss={}, accuracy={}'.format(
+					sum_test_loss / self.n_test,
+					sum_test_accuracy / self.n_test
+				)
+			)
+			self.test_accuracies.append(sum_test_accuracy / self.n_test)
+			self.test_losses.append(sum_test_loss / self.n_test)
 
 			epoch += 1
 
@@ -119,92 +148,62 @@ class CNN:
 			self.model.to_gpu()
 		self.optimizer.setup(self.model)
 
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='MNIST')
-	parser.add_argument('--gpu', '-g', default=-1, type=int,
-						help='GPU ID (negative value indicates CPU)')
-	args = parser.parse_args()
 
-	if args.gpu >= 0:
+@click.command('exec denoising autoencoder learning')
+@click.option('--description', '-d', default='MNIST original')
+@click.option(
+	'--gpu', '-g',
+	type=int,
+	default=-1,
+	help='GPU ID (negative value indicates CPU)'
+)
+@click.option(
+	'--output', '-o',
+	default='mlp.pkl',
+	help='output filepath to store trained mlp object'
+)
+def main(description, gpu, output):
+	logging.basicConfig(level=logging.INFO)
+
+	if gpu >= 0:
 		cuda.check_cuda_available()
-		cuda.get_device(args.gpu).use()
+		cuda.get_device(gpu).use()
 
 
-	print 'fetch MNIST dataset'
-	mnist = fetch_mldata('MNIST original')
-	mnist.data   = mnist.data.astype(np.float32)
-	mnist.data  /= 255
-	mnist.data = mnist.data.reshape(70000,1,28,28)
-	mnist.target = mnist.target.astype(np.int32)
+	logging.info('fetch MNIST dataset')
+	mnist = fetch_mldata(description)
+	mnist.data = mnist.data.astype(numpy.float32)
+	mnist.data /= 255
+	mnist.data = mnist.data.reshape(70000, 1, 28, 28)
+	mnist.target = mnist.target.astype(numpy.int32)
 
-	data_train,\
-	data_test,\
-	target_train,\
-	target_test = train_test_split(mnist.data, mnist.target)
+	data_train, data_test, target_train, target_test = train_test_split(mnist.data, mnist.target)
 
-	data = [data_train, data_test]
-	target = [target_train, target_test]
+	data = data_train, data_test
+	target = target_train, target_test
 
 	n_outputs = 10
 	in_channels = 1
 
-	# from animeface import AnimeFaceDataset
-	# print 'load AnimeFace dataset'
-	# dataset = AnimeFaceDataset()
-	# dataset.read_data_target()
-	# data = dataset.data
-	# target = dataset.target
-	# n_outputs = dataset.get_n_types_target()
-	# in_channels = 3
-
-
 	start_time = time.time()
 
-	cnn = CNN(data=data,
-			  target=target,
-			  gpu=args.gpu,
-			  in_channels=in_channels,
-			  n_outputs=n_outputs,
-			  n_hidden=100)
+	cnn = CNN(
+		data=data,
+		target=target,
+		gpu=gpu,
+		in_channels=in_channels,
+		n_outputs=n_outputs,
+		n_hidden=100
+	)
+
 	cnn.train_and_test(n_epoch=10)
-	cnn.dump_model()
-
-	# cnn.load_model()
-
-	# while True:
-	# 	_input = raw_input()
-	# 	_input = _input[0:len(_input)-1]
-	# 	import cv2 as cv
-	# 	image = cv.imread(_input)
-	# 	image = cv.resize(image, (dataset.image_size, dataset.image_size))
-	# 	image = image.transpose(2,0,1)
-	# 	image = image/255.
-	# 	tmp = []
-	# 	tmp.append(image)
-	# 	data = np.array(tmp, np.float32)
-	# 	target = int(dataset.get_class_id(_input))
-	# 	predicted = cnn.predict(data)[0]
-	# 	rank = {}
-	# 	for i in xrange(len(predicted)):
-	# 		rank[dataset.index2name[i]] = predicted[i]
-	# 	rank = sorted(rank.items(),key=lambda x:x[1],reverse=True)
-	# 	for i in range(9):
-	# 		r = rank[i]
-	# 		print "#" + str(i+1) + '  ' + r[0] + '  ' + str(r[1]*100) + '%'
-	# 	print '#########################################'
-
-
-
 
 	end_time = time.time()
 
-	print "time = {} min".format((end_time-start_time)/60.0)
+	logging.info("time = {} min".format((end_time - start_time) / 60.0))
+	logging.info('saving trained cnn into {}'.format(output))
+	with open(output, 'wb') as fp:
+		pickle.dump(cnn, fp)
 
 
-
-
-
-
-
-
-
+if __name__ == '__main__': main()
