@@ -1,19 +1,28 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import sys
-import argparse
 import time
-import numpy as np
+import logging
+import traceback
+import cPickle as pickle
+
+import numpy
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
-from chainer import cuda, Variable, FunctionSet, optimizers
+from chainer import cuda
+from chainer import Variable
+from chainer import FunctionSet
+from chainer import optimizers
 import chainer.functions as F
 
 from da import DA
 
+import click
 
-class SDA:
+
+class SDA(object):
 	def __init__(
 		self,
 		rng,
@@ -25,16 +34,15 @@ class SDA:
 		corruption_levels=[0.1,0.2,0.3],
 		gpu=-1):
 
-		self.model = FunctionSet(l1=F.Linear(n_inputs, n_hidden[0]),
-								 l2=F.Linear(n_hidden[0], n_hidden[1]),
-								 l3=F.Linear(n_hidden[1], n_hidden[2]),
-								 l4=F.Linear(n_hidden[2], n_outputs))
+		self.model = FunctionSet(
+			l1=F.Linear(n_inputs, n_hidden[0]),
+			l2=F.Linear(n_hidden[0], n_hidden[1]),
+			l3=F.Linear(n_hidden[1], n_hidden[2]),
+			l4=F.Linear(n_hidden[2], n_outputs)
+		)
 
 		if gpu >= 0:
 			self.model.to_gpu()
-			self.xp = cuda.cupy
-		else:
-			self.xp = np
 
 		self.rng = rng
 		self.gpu = gpu
@@ -57,14 +65,24 @@ class SDA:
 		self.dae3 = None
 		self.optimizer = None
 		self.setup_optimizer()
-	
+
+		self.train_accuracies = []
+		self.train_losses = []
+
+		self.test_accuracies = []
+		self.test_losses = []
+
 	def setup_optimizer(self):
 		self.optimizer = optimizers.AdaDelta()
 		self.optimizer.setup(self.model)
 
+	@property
+	def xp(self):
+		return cuda.cupy if self.gpu >= 0 else numpy
+
 	def pre_train(self, n_epoch=20, batchsize=100):
 		first_inputs = self.data
-		
+
 		# initialize first dAE
 		self.dae1 = DA(self.rng,
 					   data=first_inputs,
@@ -73,7 +91,7 @@ class SDA:
 					   corruption_level=self.corruption_levels[0],
 					   gpu=self.gpu)
 		# train first dAE
-		print "--------First DA training has started!--------"
+		logging.info("--------First DA training has started!--------")
 		self.dae1.train_and_test(n_epoch=n_epoch, batchsize=batchsize)
 		self.dae1.to_cpu()
 		# compute second iputs for second dAE
@@ -83,16 +101,17 @@ class SDA:
 			self.dae1.to_gpu()
 		second_inputs = [tmp1, tmp2]
 
-
 		# initialize second dAE
-		self.dae2 = DA(self.rng,
-					   data=second_inputs,
-					   n_inputs=self.n_hidden[0],
-					   n_hidden=self.n_hidden[1],
-					   corruption_level=self.corruption_levels[1],
-					   gpu=self.gpu)
+		self.dae2 = DA(
+			self.rng,
+			data=second_inputs,
+			n_inputs=self.n_hidden[0],
+			n_hidden=self.n_hidden[1],
+			corruption_level=self.corruption_levels[1],
+			gpu=self.gpu
+		)
 		# train second dAE
-		print "--------Second DA training has started!--------"
+		logging.info("--------Second DA training has started!--------")
 		self.dae2.train_and_test(n_epoch=n_epoch, batchsize=batchsize)
 		self.dae2.to_cpu()
 		# compute third inputs for third dAE
@@ -102,17 +121,17 @@ class SDA:
 			self.dae2.to_gpu()
 		third_inputs = [tmp1, tmp2]
 
-
-
 		# initialize third dAE
-		self.dae3 = DA(self.rng,
-					   data=third_inputs,
-					   n_inputs=self.n_hidden[1],
-					   n_hidden=self.n_hidden[2],
-					   corruption_level=self.corruption_levels[2],
-					   gpu=self.gpu)
+		self.dae3 = DA(
+			self.rng,
+			data=third_inputs,
+			n_inputs=self.n_hidden[1],
+			n_hidden=self.n_hidden[2],
+			corruption_level=self.corruption_levels[2],
+			gpu=self.gpu
+		)
 		# train third dAE
-		print "--------Third DA training has started!--------"
+		logging.info("--------Third DA training has started!--------")
 		self.dae3.train_and_test(n_epoch=n_epoch, batchsize=batchsize)
 
 		# update model parameters
@@ -131,11 +150,8 @@ class SDA:
 		return F.softmax_cross_entropy(y, t), F.accuracy(y, t)
 
 	def fine_tune(self, n_epoch=20, batchsize=100):
-		train_accs = []
-		test_accs = []
-
 		for epoch in xrange(1, n_epoch+1):
-			print 'fine tuning epoch ', epoch
+			logging.info('fine tuning epoch {}'.format(epoch))
 
 			perm = self.rng.permutation(self.n_train)
 			sum_accuracy = 0
@@ -154,8 +170,14 @@ class SDA:
 				sum_loss += float(cuda.to_cpu(loss.data)) * real_batchsize
 				sum_accuracy += float(cuda.to_cpu(acc.data)) * real_batchsize
 
-			print 'fine tuning train mean loss={}, accuracy={}'.format(sum_loss/self.n_train, sum_accuracy/self.n_train)
-			train_accs.append(sum_accuracy/self.n_train)
+			logging.info(
+				'fine tuning train mean loss={}, accuracy={}'.format(
+					sum_loss / self.n_train,
+					sum_accuracy / self.n_train
+				)
+			)
+			self.train_accuracies.append(sum_accuracy / self.n_train)
+			self.train_losses.append(sum_loss / self.n_train)
 
 			# evaluation
 			sum_accuracy = 0
@@ -171,52 +193,68 @@ class SDA:
 				sum_loss += float(cuda.to_cpu(loss.data)) * real_batchsize
 				sum_accuracy += float(cuda.to_cpu(acc.data)) * real_batchsize
 
-			print 'fine tuning test mean loss={}, accuracy={}'.format(sum_loss/self.n_test, sum_accuracy/self.n_test)
-			test_accs.append(sum_accuracy/self.n_test)
-		return train_accs, test_accs
+			logging.info(
+				'fine tuning test mean loss={}, accuracy={}'.format(
+					sum_loss / self.n_test,
+					sum_accuracy / self.n_test
+				)
+			)
+			self.test_accuracies.append(sum_accuracy / self.n_test)
+			self.test_losses.append(sum_loss / self.n_test)
 
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='MNIST')
-	parser.add_argument('--gpu', '-g', default=-1, type=int,
-						help='GPU ID (negative value indicates CPU)')
-	args = parser.parse_args()
+		return self.train_accuracies, self.test_accuracies
 
-	print 'fetch MNIST dataset'
-	mnist = fetch_mldata('MNIST original')
-	mnist.data   = mnist.data.astype(np.float32)
+
+@click.command('exec denoising autoencoder learning')
+@click.option('--description', '-d', default='MNIST original')
+@click.option(
+	'--gpu', '-g',
+	type=int,
+	default=-1,
+	help='GPU ID (negative value indicates CPU)'
+)
+@click.option(
+	'--output', '-o',
+	default='mlp.pkl',
+	help='output filepath to store trained mlp object'
+)
+def main(description, gpu, output):
+	logging.basicConfig(level=logging.INFO)
+
+	logging.info('fetch MNIST dataset')
+	mnist = fetch_mldata(description)
+	mnist.data   = mnist.data.astype(numpy.float32)
 	mnist.data  /= 255
-	mnist.target = mnist.target.astype(np.int32)
+	mnist.target = mnist.target.astype(numpy.int32)
 
-	data_train,\
-	data_test,\
-	target_train,\
-	target_test = train_test_split(mnist.data, mnist.target)
+	data_train, data_test, target_train, target_test = train_test_split(mnist.data, mnist.target)
 
-	data = [data_train, data_test]
-	target = [target_train, target_test]
+	data = data_train, data_test
+	target = target_train, target_test
 
-	rng = np.random.RandomState(1)
-	
-	if args.gpu >= 0:
+	rng = numpy.random.RandomState(1)
+
+	if gpu >= 0:
 		cuda.check_cuda_available()
-		cuda.get_device(args.gpu).use()
+		cuda.get_device(gpu).use()
 
 	start_time = time.time()
 
-	sda = SDA(rng=rng,
-			  data=data,
-			  target=target,
-			  gpu=args.gpu)
+	sda = SDA(
+		rng=rng,
+		data=data,
+		target=target,
+		gpu=gpu
+	)
 	# sda.pre_train(n_epoch=15)
-	sda.fine_tune(n_epoch=20)
+	sda.fine_tune(n_epoch=5)
 
 	end_time = time.time()
 
-	print "time = {} min".format((end_time-start_time)/60.0)
+	logging.info("time = {} min".format((end_time - start_time) / 60.0))
+	logging.info('saving trained sda into {}'.format(output))
+	with open(output, 'wb') as fp:
+		pickle.dump(sda, fp)
 
 
-
-
-
-
-
+if __name__ == '__main__': main()

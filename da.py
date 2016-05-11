@@ -1,20 +1,29 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+import logging
+import traceback
+import cPickle as pickle
 
 import sys
 from copy import *
 import argparse
 import time
-import numpy as np
+import numpy
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
-from chainer import cuda, Variable, FunctionSet, optimizers
+from chainer import cuda
+from chainer import Variable
+from chainer import FunctionSet
+from chainer import optimizers
 import chainer.computational_graph as c
 import chainer.functions as F
 
+import click
 
 
-class DA:
+class DA(object):
 	def __init__(
 		self,
 		rng,
@@ -33,14 +42,13 @@ class DA:
 		corruption_level: a ratio of masking noise
 		"""
 
-		self.model = FunctionSet(encoder=F.Linear(n_inputs, n_hidden),
-								 decoder=F.Linear(n_hidden, n_inputs))
+		self.model = FunctionSet(
+			encoder=F.Linear(n_inputs, n_hidden),
+			decoder=F.Linear(n_hidden, n_inputs)
+		)
 
 		if gpu >= 0:
 			self.model.to_gpu()
-			self.xp = cuda.cupy
-		else:
-			self.xp = np
 
 		self.gpu = gpu
 
@@ -56,6 +64,13 @@ class DA:
 		self.optimizer.setup(self.model)
 		self.corruption_level = corruption_level
 		self.rng = rng
+
+		self.train_losses = []
+		self.test_losses = []
+
+	@property
+	def xp(self):
+		return cuda.cupy if self.gpu >= 0 else numpy
 
 	def forward(self, x_data, train=True):
 		y_data = x_data
@@ -110,7 +125,7 @@ class DA:
 
 	def to_gpu(self):
 		if self.gpu < 0:
-			print "something wrong"
+			logging.error("something wrong")
 			raise
 		self.model.to_gpu()
 		self.xp = cuda.cupy
@@ -118,11 +133,11 @@ class DA:
 	# masking noise
 	def get_corrupted_inputs(self, x_data, train=True):
 		if train and self.corruption_level != 0.0:
-			mask = self.rng.binomial(size=x_data.shape, n=1, p=1.0-self.corruption_level)
-			mask = mask.astype(np.float32)
+			mask = self.rng.binomial(size=x_data.shape, n=1, p=1.0 - self.corruption_level)
+			mask = mask.astype(numpy.float32)
 			mask = self.xp.asarray(mask)
 			ret = mask * x_data
-			# return self.xp.asarray(ret.astype(np.float32))
+			# return self.xp.asarray(ret.astype(numpy.float32))
 			return ret
 		else:
 			return x_data
@@ -130,7 +145,7 @@ class DA:
 
 	def train_and_test(self, n_epoch=5, batchsize=100):
 		for epoch in xrange(1, n_epoch+1):
-			print 'epoch', epoch
+			logging.info('epoch: {}'.format(epoch))
 
 			perm = self.rng.permutation(self.n_train)
 			sum_loss = 0
@@ -146,7 +161,9 @@ class DA:
 
 				sum_loss += float(loss.data) * real_batchsize
 
-			print 'train mean loss={}'.format(sum_loss/self.n_train)
+			logging.info(
+				'train mean loss={}'.format(sum_loss / self.n_train)
+			)
 
 			# evaluation
 			sum_loss = 0
@@ -159,79 +176,60 @@ class DA:
 
 				sum_loss += float(loss.data) * real_batchsize
 
-			print 'test mean loss={}'.format(sum_loss/self.n_test)
-
-# 参考: http://qiita.com/kenmatsu4/items/7b8d24d4c5144a686412
-def draw_digit(data):
-    size = 28
-    X, Y = np.meshgrid(range(size),range(size))
-    Z = data.reshape(size,size)   # convert from vector to 28x28 matrix
-    Z = Z[::-1,:]             # flip vertical
-    plt.xlim(0,27)
-    plt.ylim(0,27)
-    plt.pcolor(X, Y, Z)
-    plt.flag()
-    plt.gray()
-    plt.tick_params(labelbottom="off")
-    plt.tick_params(labelleft="off")
-
-def draw_digits(data, fname="fig.png"):
-	for i in xrange(3*3):
-		plt.subplot(331+i)
-		draw_digit(data[i])
-	plt.savefig(fname)
+			logging.info(
+				'test mean loss={}'.format(sum_loss / self.n_test)
+			)
 
 
+@click.command('exec denoising autoencoder learning')
+@click.option('--description', '-d', default='MNIST original')
+@click.option(
+	'--gpu', '-g',
+	type=int,
+	default=-1,
+	help='GPU ID (negative value indicates CPU)'
+)
+@click.option(
+	'--output', '-o',
+	default='mlp.pkl',
+	help='output filepath to store trained mlp object'
+)
+def main(description, gpu, output):
+	logging.basicConfig(level=logging.INFO)
 
-if __name__ == '__main__':
-	print 'fetch MNIST dataset'
-	mnist = fetch_mldata('MNIST original')
-	mnist.data   = mnist.data.astype(np.float32)
-	mnist.data  /= 255
-	mnist.target = mnist.target.astype(np.int32)
+	logging.info('fetch MNIST dataset')
+	mnist = fetch_mldata(description)
+	mnist.data = mnist.data.astype(numpy.float32)
+	mnist.data /= 255
+	mnist.target = mnist.target.astype(numpy.int32)
 
-	data_train,\
-	data_test,\
-	target_train,\
-	target_test = train_test_split(mnist.data, mnist.target)
+	data_train, data_test, target_train, target_test = train_test_split(mnist.data, mnist.target)
 
-	data = [data_train, data_test]
-	target = [target_train, target_test]
+	data = data_train, data_test
+	target = target_train, target_test
 
-
-	parser = argparse.ArgumentParser(description='MNIST')
-	parser.add_argument('--gpu', '-g', default=-1, type=int,
-						help='GPU ID (negative value indicates CPU)')
-	args = parser.parse_args()
-
-	if args.gpu >= 0:
+	if gpu >= 0:
 		cuda.check_cuda_available()
-		cuda.get_device(args.gpu).use()
+		cuda.get_device(gpu).use()
 
 	# draw_digits(mnist.data[0:9])
-	rng = np.random.RandomState(1)
-
-
+	rng = numpy.random.RandomState(1)
 	start_time = time.time()
 
+	da = DA(rng=rng, data=data, gpu=gpu)
 
-	da = DA(rng=rng, data=data, gpu=args.gpu)
-
-	perm = np.random.permutation(len(data[0]))
+	perm = numpy.random.permutation(len(data[0]))
 	data = mnist.data[perm[0:9]]
-
-	draw_digits(data, fname="input.png")
 
 	da.train_and_test(n_epoch=5)
 
-	# predicted = da.predict(data)
-	# draw_digits(predicted, fname="output_epoch5.png")
-
-	# perm = np.random.permutation(784)
-	# W = da.model.to_cpu().encoder.W[perm[0:9]]
-	# draw_digits(W, fname="learned_weights.png")
-
-
 	end_time = time.time()
 
-	print "time = {} min".format((end_time-start_time)/60.0)
+	logging.info("time = {} min".format((end_time - start_time) / 60.0))
+
+	logging.info("saving trained da into {}".format(output))
+	with open(output, 'wb') as fp:
+		pickle.dump(da, fp)
+
+
+if __name__ == '__main__': main()
