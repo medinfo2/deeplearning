@@ -49,6 +49,10 @@ $ git push origin deeplearning-<username>-<Trial Number>
 $ git checkout master
 ```
 
+より細かく自分の作ったソースコード管理を死体人は、git-flowを使いましょう。
+
+* [git-flowって何？](http://qiita.com/KosukeSone/items/514dd24828b485c69a05)
+
 ### 環境のセットアップ
 
 Homebrewとpyenvを利用すると比較的すぐ作業環境を構築することができます。
