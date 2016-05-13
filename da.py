@@ -191,8 +191,8 @@ class DA(object):
 )
 @click.option(
 	'--output', '-o',
-	default='mlp.pkl',
-	help='output filepath to store trained mlp object'
+	default='da.pkl',
+	help='output filepath to store trained da object'
 )
 def main(description, gpu, output):
 	logging.basicConfig(level=logging.INFO)

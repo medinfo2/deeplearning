@@ -215,8 +215,8 @@ class SDA(object):
 )
 @click.option(
 	'--output', '-o',
-	default='mlp.pkl',
-	help='output filepath to store trained mlp object'
+	default='sda.pkl',
+	help='output filepath to store trained sda object'
 )
 def main(description, gpu, output):
 	logging.basicConfig(level=logging.INFO)
