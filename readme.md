@@ -49,9 +49,24 @@ $ git push origin deeplearning-<username>-<Trial Number>
 $ git checkout master
 ```
 
-より細かく自分の作ったソースコード管理を死体人は、git-flowを使いましょう。
+#### Git-flowを使った簡単ブランチ管理
+
+より細かく自分の作ったソースコード管理をしたい人は、git-flowを使いましょう。
 
 * [git-flowって何？](http://qiita.com/KosukeSone/items/514dd24828b485c69a05)
+
+git-flowはHomebrewで簡単に導入することができます。
+
+```
+$ brew install git-flow
+$ cd path/to/deeplearning
+$ git flow init
+$ git flow feature start <username>-<trial number>
+...<実際の作業>...
+$ git flow feature publish <username>-<trial number>
+```
+
+上記を実行するだけで、feature/<username>-<trial number>というブランチが作られ、そのブランチで自分のコードを好きに編集していくことができます。
 
 ### 環境のセットアップ
 
