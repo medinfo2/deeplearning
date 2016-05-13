@@ -81,8 +81,8 @@ To use Homebrew's directories rather than ~/.pyenv add to your profile:
 
 To enable shims and autocompletion add to your profile:
   if which pyenv > /dev/null; then eval "$(pyenv init -)"; fi
-$ echo "export PYENV_ROOT=/usr/local/var/pyenv" >> ~/.bash_profile
-$ echo "if which pyenv > /dev/null; then eval "$(pyenv init -)"; fi" >> ~/.bash_profile
+$ echo "export PYENV_ROOT=/usr/local/var/pyenv; " >> ~/.bash_profile
+$ echo "if which pyenv > /dev/null; then eval $(pyenv init -); fi" >> ~/.bash_profile
 $ source ~/.bash_profile
 $ pyenv install anaconda-2.4.0
 $ git clone https://github.com/medinfo2/deeplearning.git
