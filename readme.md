@@ -37,6 +37,7 @@ DeepLearning-<Trial Number>-<Date>.(pptx|pdf)
 
 * [第一回演習資料](https://github.com/medinfo2/deeplearning/wiki/files/DeepLearning-1-20160513.pptx)
 * [第二回演習資料](https://github.com/medinfo2/deeplearning/wiki/files/DeepLearning-2-20160520.pdf)
+* [第二回演習資料](https://github.com/medinfo2/deeplearning/wiki/files/DeepLearning-3-20160527.pdf)
 
 
 ### 課題
