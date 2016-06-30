@@ -111,7 +111,7 @@ class MLP(object):
 				sum_accuracy += float(cuda.to_cpu(acc.data)) * real_batchsize
 
 			self.test_accuracies.append(sum_accuracy / self.n_test)
-			self.test_accuracies.append(sum_loss / self.n_test)
+			self.test_losses.append(sum_loss / self.n_test)
 			logging.info(
 				'test mean loss={}, accuracy={}'.format(
 					sum_loss / self.n_test,
