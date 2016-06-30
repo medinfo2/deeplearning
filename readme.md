@@ -40,7 +40,7 @@ DeepLearning-<Trial Number>-<Date>.(pptx|pdf)
 * [第三回演習資料](https://github.com/medinfo2/deeplearning/wiki/files/DeepLearning-3-20160527.pdf)
 * [第四回演習資料](https://github.com/medinfo2/deeplearning/wiki/files/DeepLearning-4-20160617.pdf)
 * [第五回演習資料](https://github.com/medinfo2/deeplearning/blob/master/cifar10-mlp.ipynb)
-
+* [第六回演習資料](https://github.com/medinfo2/deeplearning/blob/master/visualize_dnn.ipynb)
 
 ### 課題
 
