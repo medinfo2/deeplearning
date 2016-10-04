@@ -179,8 +179,8 @@ def main(description, gpu, output):
 
 	data_train, data_test, target_train, target_test = train_test_split(mnist.data, mnist.target)
 
-	data = data_train, data_test
-	target = target_train, target_test
+	data = data_train[:10000], data_test[:10000]
+	target = target_train[:10000], target_test[:10000]
 
 	n_outputs = 10
 	in_channels = 1
@@ -196,14 +196,14 @@ def main(description, gpu, output):
 		n_hidden=100
 	)
 
-	cnn.train_and_test(n_epoch=10)
+	cnn.train_and_test(n_epoch=1)
 
 	end_time = time.time()
 
 	logging.info("time = {} min".format((end_time - start_time) / 60.0))
 	logging.info('saving trained cnn into {}'.format(output))
-	with open(output, 'wb') as fp:
-		pickle.dump(cnn, fp)
+	# with open(output, 'wb') as fp:
+	# 	pickle.dump(cnn, fp)
 
 
 if __name__ == '__main__': main()
