@@ -19,7 +19,13 @@ from chainer import Chain
 import chainer.functions as F
 
 import yaml
-from dbarchive import Base
+
+_enable_dbarchive = False
+try:
+	from dbarchive import Base
+	_enable_dbarchive = True
+except:
+	logging.error('dbarchive is not installed. The save feature with mongodb cannot be used.')
 
 
 class Argument(object):
@@ -361,8 +367,9 @@ def main(gpu, epochs, json, yaml):
 
 	logging.info("time = {} min".format((end_time - start_time) / 60.0))
 
-	logging.info('saving trained cnn')
-	cnn.save()
+	if _enable_dbarchive:
+		logging.info('saving trained cnn')
+		cnn.save()
 
 
 if __name__ == '__main__': main()
