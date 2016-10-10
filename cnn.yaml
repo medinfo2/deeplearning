@@ -1,0 +1,36 @@
+name: CNN
+optimizer: chainer.optimizers.Adam
+gpu: -1
+layers:
+  conv1:
+    model: chainer.functions.Convolution2D
+    kwargs:
+      in_channels: 1
+      out_channels: 32
+      ksize: 2
+  pool2:
+    function: chainer.functions.max_pooling_2d
+    kwargs:
+      ksize: 2
+      stride: 2
+  conv3:
+    model: chainer.functions.Convolution2D
+    kwargs:
+      in_channels: 32
+      out_channels: 32
+      ksize: 2
+  pool4:
+    function: chainer.functions.max_pooling_2d
+    kwargs:
+      ksize: 2
+      stride: 2
+  l5:
+    model: chainer.functions.Linear
+    kwargs:
+      in_size: 1568
+      out_size: 100
+  l6:
+    model: chainer.functions.Linear
+    kwargs:
+      in_size: 100
+      out_size: 100
