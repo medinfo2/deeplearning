@@ -16,9 +16,11 @@ from keras.layers import Convolution2D, MaxPooling2D
 from keras.utils import np_utils
 from keras import backend as K
 
+import matplotlib.pyplot as plt
+
 batch_size = 128
 nb_classes = 10
-nb_epoch = 12
+nb_epoch = 10
 
 # input image dimensions
 img_rows, img_cols = 28, 28
@@ -71,12 +73,31 @@ model.add(Dropout(0.5))
 model.add(Dense(nb_classes))
 model.add(Activation('softmax'))
 
+# change optimizer to Adam
+#model.compile(loss='categorical_crossentropy',
+#              optimizer='adadelta',
+#              metrics=['accuracy'])
+
 model.compile(loss='categorical_crossentropy',
-              optimizer='adadelta',
+              optimizer='adam',
               metrics=['accuracy'])
 
-model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
+history = model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
           verbose=1, validation_data=(X_test, Y_test))
 score = model.evaluate(X_test, Y_test, verbose=0)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
+
+# plot learning graph
+print('plotting learning graph...')
+loss     = history.history['loss']
+#val_loss = history.history['val_loss']
+acc = history.history['acc']
+nb_epoch = len(loss)
+plt.plot(range(nb_epoch), loss, label='loss')
+plt.plot(range(nb_epoch), acc, label='accuracy')
+plt.legend(loc='best', fontsize=10)
+plt.grid()
+plt.xlabel('epoch')
+plt.ylabel('loss')
+plt.savefig('cnn_accuracy.png')
