@@ -33,7 +33,9 @@
 
 ### 演習資料
 誠意作成中です。
-
+mlpのサンプルはmlp_keras.py
+cnnのサンプルはcnn_keras.py
+どちらもmnistをデータセットとして用いています。
 <!-- 演習資料を以下の命名規則にしたがって作成し、当日までにWikiにアップロードします。なお、２回目以降はパワーポイントファイルやpdfではなく、Wikiページとしてアップしますので、リンクを辿って下さい。
 
 ```
@@ -82,5 +84,5 @@ $ pip install keras
 
 ### 参考文献
 
-* [元にしたソースコードmlp](https://github.com/fchollet/keras/blob/master/examples/mnist_mlp.py)
+* [元にしたソースコード](https://github.com/fchollet/keras/tree/master/examples)
 * [Homebrew](http://brew.sh/index_ja.html)
