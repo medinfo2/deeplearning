@@ -6,7 +6,7 @@ Gets to 98.40% test accuracy after 20 epochs
 
 from __future__ import print_function
 import numpy as np
-np.random.seed(1337)  # for reproducibility
+np.random.seed(20170214)  # for reproducibility
 
 from keras.datasets import mnist
 from keras.models import Sequential
@@ -14,12 +14,14 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop
 from keras.utils import np_utils
 
+import matplotlib.pyplot as plt
 
 batch_size = 128
 nb_classes = 10
 nb_epoch = 20
 
 # the data, shuffled and split between train and test sets
+# inport mnist data
 (X_train, y_train), (X_test, y_test) = mnist.load_data()
 
 X_train = X_train.reshape(60000, 784)
@@ -47,8 +49,13 @@ model.add(Activation('softmax'))
 
 model.summary()
 
+# change optimizer to Adam
+#model.compile(loss='categorical_crossentropy',
+#              optimizer=RMSprop(),
+#              metrics=['accuracy'])
+
 model.compile(loss='categorical_crossentropy',
-              optimizer=RMSprop(),
+              optimizer='adam',
               metrics=['accuracy'])
 
 history = model.fit(X_train, Y_train,
@@ -57,3 +64,17 @@ history = model.fit(X_train, Y_train,
 score = model.evaluate(X_test, Y_test, verbose=0)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
+
+# plot learning graph
+print('plotting learning graph...')
+loss     = history.history['loss']
+#val_loss = history.history['val_loss']
+acc = history.history['acc']
+nb_epoch = len(loss)
+plt.plot(range(nb_epoch), loss, label='loss')
+plt.plot(range(nb_epoch), acc, label='accuracy')
+plt.legend(loc='best', fontsize=10)
+plt.grid()
+plt.xlabel('epoch')
+plt.ylabel('loss')
+plt.savefig('mlp_accuracy.png')
