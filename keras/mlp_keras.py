@@ -15,7 +15,20 @@ from keras.optimizers import RMSprop
 from keras.utils import np_utils
 
 import matplotlib.pyplot as plt
+from sklearn import metrics
 
+try:
+	from prettytable import PrettyTable
+except:
+	logging.error('prettytable is not installed. please install prettytable first.')
+
+try:
+	import click
+except:
+	logging.error('click is not installed. please install click first.')
+
+
+'''
 batch_size = 128
 nb_classes = 10
 nb_epoch = 20
@@ -78,3 +91,94 @@ plt.grid()
 plt.xlabel('epoch')
 plt.ylabel('loss')
 plt.savefig('mlp_accuracy.png')
+'''
+
+
+def train_and_test(X_train, X_test, Y_train, Y_test, batch_size, nb_classes, nb_epoch):
+    model = Sequential()
+    model.add(Dense(512, input_shape=(784,)))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(512))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(10))
+    model.add(Activation('softmax'))
+
+    model.summary()
+
+    # change optimizer to Adam
+    #model.compile(loss='categorical_crossentropy',
+    #              optimizer=RMSprop(),
+    #              metrics=['accuracy'])
+
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+
+    history = model.fit(X_train, Y_train,
+                        batch_size=batch_size, nb_epoch=nb_epoch,
+                        verbose=1, validation_data=(X_test, Y_test))
+    score = model.evaluate(X_test, Y_test, verbose=0)
+    print('Test score:', score[0])
+    print('Test accuracy:', score[1])
+
+    plot_graph(history, nb_epoch)
+    matrix = confusion_matrix(X_test, Y_test)
+    print_confusion_matrix(matrix)
+
+def plot_graph(history, nb_epoch):
+    # plot learning graph
+    print('plotting learning graph...')
+    loss     = history.history['loss']
+    #val_loss = history.history['val_loss']
+    acc = history.history['acc']
+    nb_epoch = len(loss)
+    plt.plot(range(nb_epoch), loss, label='loss')
+    plt.plot(range(nb_epoch), acc, label='accuracy')
+    plt.legend(loc='best', fontsize=10)
+    plt.xlim(xmin=1)
+    plt.grid()
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.savefig('mlp_accuracy.png')
+
+def confusion_matrix(X_test, Y_test):
+    pred_y = predict(self, X_test)
+    return metrics.confusion_matrix(Y_test, pred_y)
+
+def print_confusion_matrix(matrix, logger=None, border=True):
+	ptable = PrettyTable(["Label{}".format(i) for i in range(matrix.shape[0])])
+    for i,row in enumerate(matrix):
+        ptable.add_row(row)
+	if logger is None:
+        print ptable.get_string(border=border)
+	else:
+		logger.info(os.linesep + ptable.get_string(border=border))
+
+
+def main():
+    batch_size = 128
+    nb_classes = 10
+    nb_epoch = 1
+
+    # the data, shuffled and split between train and test sets
+    # inport mnist data
+    (X_train, y_train), (X_test, y_test) = mnist.load_data()
+
+    X_train = X_train.reshape(60000, 784)
+    X_test = X_test.reshape(10000, 784)
+    X_train = X_train.astype('float32')
+    X_test = X_test.astype('float32')
+    X_train /= 255
+    X_test /= 255
+    print(X_train.shape[0], 'train samples')
+    print(X_test.shape[0], 'test samples')
+
+    # convert class vectors to binary class matrices
+    Y_train = np_utils.to_categorical(y_train, nb_classes)
+    Y_test = np_utils.to_categorical(y_test, nb_classes)
+
+    train_and_test(X_train, X_test, Y_train, Y_test, batch_size, nb_classes, nb_epoch)
+
+if __name__ == '__main__': main()
