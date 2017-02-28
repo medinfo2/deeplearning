@@ -60,32 +60,14 @@ model.add(Activation('softmax'))
 
 model.summary()
 
-# change optimizer to Adam
-#model.compile(loss='categorical_crossentropy',
-#              optimizer=RMSprop(),
-#              metrics=['accuracy'])
-
 model.compile(loss='categorical_crossentropy',
-              optimizer='adam',
+              optimizer=RMSprop(),
               metrics=['accuracy'])
 
 history = model.fit(X_train, Y_train,
                     batch_size=batch_size, nb_epoch=nb_epoch,
                     verbose=1, validation_data=(X_test, Y_test))
+
 score = model.evaluate(X_test, Y_test, verbose=0)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
-
-# plot learning graph
-print('plotting learning graph...')
-loss     = history.history['loss']
-#val_loss = history.history['val_loss']
-acc = history.history['acc']
-nb_epoch = len(loss)
-plt.plot(range(nb_epoch), loss, label='loss')
-plt.plot(range(nb_epoch), acc, label='accuracy')
-plt.legend(loc='best', fontsize=10)
-plt.grid()
-plt.xlabel('epoch')
-plt.ylabel('loss')
-plt.savefig('mlp_accuracy.png')

@@ -21,6 +21,7 @@ from sklearn import metrics
 
 batch_size = 128
 nb_classes = 10
+#number of learning epoch
 nb_epoch = 10
 
 # input image dimensions
@@ -74,13 +75,8 @@ model.add(Dropout(0.5))
 model.add(Dense(nb_classes))
 model.add(Activation('softmax'))
 
-# change optimizer to Adam
-#model.compile(loss='categorical_crossentropy',
-#              optimizer='adadelta',
-#              metrics=['accuracy'])
-
 model.compile(loss='categorical_crossentropy',
-              optimizer='adam',
+              optimizer='adadelta',
               metrics=['accuracy'])
 
 history = model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
@@ -88,17 +84,3 @@ history = model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch,
 score = model.evaluate(X_test, Y_test, verbose=0)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
-
-# plot learning graph
-print('plotting learning graph...')
-loss     = history.history['loss']
-#val_loss = history.history['val_loss']
-acc = history.history['acc']
-nb_epoch = len(loss)
-plt.plot(range(nb_epoch), loss, label='loss')
-plt.plot(range(nb_epoch), acc, label='accuracy')
-plt.legend(loc='best', fontsize=10)
-plt.grid()
-plt.xlabel('epoch')
-plt.ylabel('loss')
-plt.savefig('cnn_accuracy.png')
