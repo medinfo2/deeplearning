@@ -16,9 +16,6 @@ from keras.layers import Convolution2D, MaxPooling2D
 from keras.utils import np_utils
 from keras import backend as K
 
-import matplotlib.pyplot as plt
-from sklearn import metrics
-
 batch_size = 128
 nb_classes = 10
 #number of learning epoch

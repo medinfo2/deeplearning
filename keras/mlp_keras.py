@@ -14,18 +14,6 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop
 from keras.utils import np_utils
 
-import matplotlib.pyplot as plt
-from sklearn import metrics
-
-try:
-	from prettytable import PrettyTable
-except:
-	logging.error('prettytable is not installed. please install prettytable first.')
-
-try:
-	import click
-except:
-	logging.error('click is not installed. please install click first.')
 
 batch_size = 128
 nb_classes = 10
